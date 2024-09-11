@@ -37,3 +37,5 @@ next-env.d.ts
 
 # Ignore environment variables
 .env.local
+
+.env

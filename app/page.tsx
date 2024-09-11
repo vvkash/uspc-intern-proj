@@ -1,26 +1,35 @@
 export default async function Page() {
-  const url = 'https://f1-motorsport-data.p.rapidapi.com/schedule';
+  // new API for NFL
+  const url = 'https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek';
+
+  // some required params and querys 
+  const queryParam = new URLSearchParams({
+    week: "1",
+    seasonType: "reg",
+    season: "2024"
+  });
+
+
 
   try {
-    // Fetch data from the API with necessary headers
+    // API headers
     let response = await fetch(url, {
       method: 'GET',
       headers: {
         'X-RapidAPI-Key': process.env.NEXT_PUBLIC_RAPIDAPI_KEY!, // Replace with your actual API key
         'X-RapidAPI-Host': process.env.NEXT_PUBLIC_RAPIDAPI_HOST!,
       },
-      cache: 'no-store', // Prevents caching of the request
+      cache: 'no-store', // currently no need too cache 
     });
 
-    // Handle non-OK responses
+    // handling edge cases and errors 
     if (!response.ok) {
       return <p>Error: {response.statusText}</p>;
     }
 
-    // Parse the JSON response
+    // parsing data (JSON)
     let data = await response.json();
 
-    // Log the actual data structure for debugging
     console.log("Actual API Response Data:", data);
 
     // Check if the data is an array, otherwise return an error message
@@ -28,7 +37,7 @@ export default async function Page() {
       return <p>No data available or incorrect format. Actual data: {JSON.stringify(data)}</p>;
     }
 
-    // Render the data (assuming it is a list of posts)
+    // temperorary for now, since i want to check if it will parse as an array.
     return (
       <div>
         <h1>Fetched Posts:</h1>
