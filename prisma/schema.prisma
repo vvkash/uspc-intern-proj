@@ -12,3 +12,26 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+
+model NFLTeams {
+  id            Int     @id @default(autoincrement())
+  teamID        String  @unique // Using teamID as a unique identifier
+  teamAbv       String
+  teamName      String
+  teamCity      String
+  wins          Int
+  loss          Int
+  tie           Int
+  division      String
+  conferenceAbv String
+  conference    String
+  pf            Int     // Points For
+  pa            Int     // Points Against
+  nflComLogo1   String  // NFL.com Logo URL
+  espnLogo1     String  // ESPN Logo URL
+  createdAt     DateTime @default(now()) // Automatically track when the record was created
+  updatedAt     DateTime @updatedAt // Automatically track when the record was last updated
+}
+
+
