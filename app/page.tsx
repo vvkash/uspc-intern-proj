@@ -1,138 +1,114 @@
-'use client';  // Client-side hooks
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { PrismaClient } from '@prisma/client';
-import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@/components/ui/table';
+import { Input } from "@/components/ui/input";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 
-const prisma = new PrismaClient();
-
-// Fetch and upsert NFL Teams data from the API into the database
-async function fetchAndStoreNFLTeams() {
-  const url = 'https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLTeams';
-  
-  const queryParam = new URLSearchParams({
-    sortBy: 'standings',
-    rosters: 'false',
-    schedules: 'false',
-    topPerformers: 'true',
-    teamStats: 'true',
-    teamStatsSeason: '2023',
-  });
-
-  const urlWithParams = `${url}?${queryParam.toString()}`;
-
-  try {
-    const response = await fetch(urlWithParams, {
-      method: 'GET',
-      headers: {
-        'X-RapidAPI-Key': process.env.NEXT_PUBLIC_RAPIDAPI_KEY!,
-        'X-RapidAPI-Host': process.env.NEXT_PUBLIC_RAPIDAPI_HOST!,
-      },
-      cache: 'no-store',  // Prevent caching for fresh data
-    });
-
-    const rawText = await response.text();
-    const data = JSON.parse(rawText);
-
-    let teams = [];
-    if (Array.isArray(data)) {
-      teams = data;
-    } else if (data.body && Array.isArray(data.body.teams)) {
-      teams = data.body.teams;
-    } else if (data.body && Array.isArray(data.body)) {
-      teams = data.body;
-    } else {
-      throw new Error('Unexpected data structure');
-    }
-
-    const teamPromises = teams.map((team: any) =>
-      prisma.nFLTeams.upsert({
-        where: { teamID: team.teamID },
-        update: {
-          teamAbv: team.teamAbv,
-          teamName: team.teamName,
-          teamCity: team.teamCity,
-          wins: parseInt(team.wins, 10) || 0,
-          loss: parseInt(team.loss, 10) || 0,
-          tie: parseInt(team.tie, 10) || 0,
-          division: team.division,
-          conferenceAbv: team.conferenceAbv,
-          conference: team.conference,
-          pf: parseInt(team.pf, 10) || 0,
-          pa: parseInt(team.pa, 10) || 0,
-          nflComLogo1: team.nflComLogo1,
-          espnLogo1: team.espnLogo1,
-        },
-        create: {
-          teamID: team.teamID,
-          teamAbv: team.teamAbv,
-          teamName: team.teamName,
-          teamCity: team.teamCity,
-          wins: parseInt(team.wins, 10) || 0,
-          loss: parseInt(team.loss, 10) || 0,
-          tie: parseInt(team.tie, 10) || 0,
-          division: team.division,
-          conferenceAbv: team.conferenceAbv,
-          conference: team.conference,
-          pf: parseInt(team.pf, 10) || 0,
-          pa: parseInt(team.pa, 10) || 0,
-          nflComLogo1: team.nflComLogo1,
-          espnLogo1: team.espnLogo1,
-        },
-      })
-    );
-
-    await Promise.all(teamPromises);
-
-    // Fetch the stored teams from the database to display in the table
-    return await prisma.nFLTeams.findMany();
-  } catch (error) {
-    console.error('Error fetching or storing NFL teams:', error);
-    throw error;
-  }
+interface NFLTeam {
+  teamID: string;
+  teamAbv: string;
+  teamName: string;
+  teamCity: string;
+  wins: number;
+  loss: number;
+  tie: number;
+  division: string;
+  conferenceAbv: string;
+  conference: string;
+  pf: number;
+  pa: number;
+  nflComLogo1: string;
+  espnLogo1: string;
 }
 
-const NFLTeamsPage = async () => {
-  const storedTeams = await fetchAndStoreNFLTeams();  // Fetch and store data
+const NFLTeamsPage = () => {
+  const [teams, setTeams] = useState<NFLTeam[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
-  return (        // main table and data
-    <div>
-      <h1>NFL Stats (2024)</h1>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableHeader className="flex space-x-3">Logo</TableHeader>
-            <TableHeader>Team Abbreviation</TableHeader>
-            <TableHeader>Team Name</TableHeader>
-            <TableHeader>City</TableHeader>
-            <TableHeader>Wins</TableHeader>
-            <TableHeader>Losses</TableHeader>
-            <TableHeader>Division</TableHeader>
-            <TableHeader>Conference</TableHeader>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {storedTeams.map((team) => (
-            <TableRow key={team.teamID}>
-              <TableCell>
-                <img src={team.nflComLogo1} alt={`${team.teamName} logo`} width={50} />
-              </TableCell>
-              <TableCell>{team.teamAbv}</TableCell>
-              <TableCell>{team.teamName}</TableCell>
-              <TableCell>{team.teamCity}</TableCell>
-              <TableCell>{team.wins}</TableCell>
-              <TableCell>{team.loss}</TableCell>
-              <TableCell>{team.division}</TableCell>
-              <TableCell>{team.conferenceAbv}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const response = await fetch('/api/nflTeams');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTeams(data);
+      } catch (error) {
+        console.error('Error fetching NFL teams:', error);
+        setError('Failed to fetch NFL teams data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeams();
+  }, []);
+
+  const filteredTeams = teams.filter((team) =>
+    Object.values(team).some((value) =>
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  return (
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="text-2xl font-bold">NFL Stats (2024) - USPC Intern Project</h1>
+        <ThemeSwitcher />
+      </div>
+      <Input
+        type="text"
+        placeholder="Search.."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="mb-4"
+      />
+      {filteredTeams.length === 0 ? (
+        <div>No teams data available</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-12 gap-4 font-semibold mb-2 bg-secondary p-2 rounded">
+            <div className="col-span-1">Logo</div>
+            <div className="col-span-1">Abbr</div>
+            <div className="col-span-2">Name</div>
+            <div className="col-span-2">City</div>
+            <div className="col-span-1">Wins</div>
+            <div className="col-span-1">Losses</div>
+            <div className="col-span-2">Division</div>
+            <div className="col-span-2">Conference</div>
+          </div>
+          <div className="space-y-2">
+            {filteredTeams.map((team) => (
+              <div key={team.teamID} className="grid grid-cols-12 gap-4 items-center bg-muted p-2 rounded">
+                <img src={team.nflComLogo1} alt={`${team.teamName} logo`} className="w-10 h-10 object-contain col-span-1" />
+                <div className="col-span-1">{team.teamAbv}</div>
+                <div className="col-span-2">{team.teamName}</div>
+                <div className="col-span-2">{team.teamCity}</div>
+                <div className="col-span-1">{team.wins}</div>
+                <div className="col-span-1">{team.loss}</div>
+                <div className="col-span-2">{team.division}</div>
+                <div className="col-span-2">{team.conferenceAbv}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
-export default NFLTeamsPage; // needed for componenent 
+export default NFLTeamsPage;
+
+
+
+
 
 
 
